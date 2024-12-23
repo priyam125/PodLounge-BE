@@ -4,6 +4,7 @@ import crypto from "crypto";
 import twilio from "twilio";
 import prisma from "../config/db.config.js";
 import jwt from "jsonwebtoken";
+import UserDto from "../dtos/user-dto.js";
 
 console.log(crypto.randomBytes(64).toString("hex"));
 
@@ -11,7 +12,8 @@ console.log(crypto.randomBytes(64).toString("hex"));
 
 const client = twilio(process.env.SMS_SID, process.env.SMS_AUTH_TOKEN, { lazyLoading: true });
 
-const maxAge = 30 * 24 * 60 * 60 * 1000; //30 days
+const maxAgeRefreshToken = 30 * 24 * 60 * 60 * 1000; //30 days
+const maxAgeAccessToken =  1 * 24 * 60 * 60 * 1000;  //1 day 
 
 class AuthController {
   static async sendOtp(req, res) {
@@ -31,22 +33,24 @@ class AuthController {
       .update(hashData)
       .digest("hex");
 
-    client.messages
-      .create({
-        to: "+917488847790",
-        from: "+17755102809",
-        body: `Your PodLounge otp is ${otp}`,
-      })
-      .then((message) => {
-        console.log("message.sid", message.sid);
-        // Return the hashed OTP and OTP expiry time to prevent OTP reuse attacks.
-        // The OTP expiry time is included to ensure the OTP can only be used within a limited time window.
-        return res.status(200).json({ hash: `${hashedOtp}.${otpExpiry}`, phone });
-      })
-      .catch((error) => {
-        console.error(error);
-        return res.status(500).json({ error: "Failed to send OTP" });
-      });
+    // client.messages
+    //   .create({
+    //     to: "+917488847790",
+    //     from: "+17755102809",
+    //     body: `Your PodLounge otp is ${otp}`,
+    //   })
+    //   .then((message) => {
+    //     console.log("message.sid", message.sid);
+    //     // Return the hashed OTP and OTP expiry time to prevent OTP reuse attacks.
+    //     // The OTP expiry time is included to ensure the OTP can only be used within a limited time window.
+    //     return res.status(200).json({ hash: `${hashedOtp}.${otpExpiry}`, phone });
+    //   })
+    //   .catch((error) => {
+    //     console.error(error);
+    //     return res.status(500).json({ error: "Failed to send OTP" });
+    //   });
+
+    return res.status(200).json({ hash: `${hashedOtp}.${otpExpiry}`, phone, otp });
   }
 
   static async verifyOtp(req, res) {
@@ -104,19 +108,30 @@ class AuthController {
         expiresIn: "30d",
     });
 
+    await prisma.refreshToken.create({
+        data: {
+            userId: user.id,
+            token: refreshToken,
+        },
+    });
+
+    res.cookie("accessToken", accessToken, {
+        httpOnly: true,
+        maxAge: maxAgeAccessToken,
+    });
+
     res.cookie("refreshToken", refreshToken, {
         httpOnly: true,
-        maxAge,
+        maxAge: maxAgeRefreshToken,
     })
 
     //send access token as response json
 
+    const userDto = new UserDto(user);
+
     res.json({
-        accessToken,
-        user: {
-            id: user.id,
-            phone: user.phone,
-        },
+        auth: true,
+        user: userDto,
     });
 
     // await prisma.refreshToken.create({
