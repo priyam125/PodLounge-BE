@@ -6,6 +6,7 @@ const router = Router()
 
 router.post('/auth/send-otp', AuthController.sendOtp);
 router.post('/auth/verify-otp', AuthController.verifyOtp);
+router.get('/auth/refresh-token', AuthController.refreshToken)
 
 // module.exports = router;
 export default router

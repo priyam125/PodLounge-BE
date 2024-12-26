@@ -10,10 +10,12 @@ console.log(crypto.randomBytes(64).toString("hex"));
 
 // console.log(smsSid, smsAuthToken);
 
-const client = twilio(process.env.SMS_SID, process.env.SMS_AUTH_TOKEN, { lazyLoading: true });
+const client = twilio(process.env.SMS_SID, process.env.SMS_AUTH_TOKEN, {
+  lazyLoading: true,
+});
 
 const maxAgeRefreshToken = 30 * 24 * 60 * 60 * 1000; //30 days
-const maxAgeAccessToken =  1 * 24 * 60 * 60 * 1000;  //1 day 
+const maxAgeAccessToken = 1 * 24 * 60 * 60 * 1000; //1 day
 
 class AuthController {
   static async sendOtp(req, res) {
@@ -50,14 +52,18 @@ class AuthController {
     //     return res.status(500).json({ error: "Failed to send OTP" });
     //   });
 
-    return res.status(200).json({ hash: `${hashedOtp}.${otpExpiry}`, phone, otp });
+    return res
+      .status(200)
+      .json({ hash: `${hashedOtp}.${otpExpiry}`, phone, otp });
   }
 
   static async verifyOtp(req, res) {
     const { otp, phone, hash } = req.body;
 
     if (!otp || !phone || !hash) {
-      return res.status(400).json({ error: "OTP and phone number are required" });
+      return res
+        .status(400)
+        .json({ error: "OTP and phone number are required" });
     }
 
     const [hashedOtp, otpExpiry] = hash.split(".");
@@ -96,42 +102,42 @@ class AuthController {
     }
 
     const jwtPayload = {
-        id: user.id,
-        phone: user.phone,
+      id: user.id,
+      phone: user.phone,
     };
 
     accessToken = jwt.sign(jwtPayload, process.env.JWT_ACCESS_TOKEN_SECRET, {
-        expiresIn: "1h",
+      expiresIn: "1m",
     });
 
     refreshToken = jwt.sign(jwtPayload, process.env.JWT_REFRESH_TOKEN_SECRET, {
-        expiresIn: "30d",
+      expiresIn: "30d",
     });
 
     await prisma.refreshToken.create({
-        data: {
-            userId: user.id,
-            token: refreshToken,
-        },
+      data: {
+        userId: user.id,
+        token: refreshToken,
+      },
     });
 
     res.cookie("accessToken", accessToken, {
-        httpOnly: true,
-        maxAge: maxAgeAccessToken,
+      httpOnly: true,
+      maxAge: maxAgeAccessToken,
     });
 
     res.cookie("refreshToken", refreshToken, {
-        httpOnly: true,
-        maxAge: maxAgeRefreshToken,
-    })
+      httpOnly: true,
+      maxAge: maxAgeRefreshToken,
+    });
 
     //send access token as response json
 
     const userDto = new UserDto(user);
 
     res.json({
-        auth: true,
-        user: userDto,
+      auth: true,
+      user: userDto,
     });
 
     // await prisma.refreshToken.create({
@@ -142,6 +148,99 @@ class AuthController {
     // });
 
     // return res.status(200).json({ message: "OTP verified successfully" });
+  }
+
+  static async refreshToken(req, res) { 
+    const { refreshToken: refreshTokenFromCookie } = req.cookies;
+
+    if (!refreshTokenFromCookie) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      //gets the user id from the refresh token
+      const decoded = jwt.verify(
+        refreshTokenFromCookie,
+        process.env.JWT_REFRESH_TOKEN_SECRET
+      );
+      //gets the user from the database
+      const user = await prisma.user.findUnique({
+        where: {
+          id: decoded.id,
+        },
+      });
+
+      if (!user) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      //Check if refresh token is in the database
+      const token = await prisma.refreshToken.findFirst({
+        where: {
+          userId: user.id,
+        },
+      });
+
+      if (!token) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+
+      //Generate new tokens
+      const newAccessToken = jwt.sign(
+        {
+          id: user.id,
+          phone: user.phone,
+        },
+        process.env.JWT_ACCESS_TOKEN_SECRET,
+        {
+          expiresIn: "1m",
+        }
+      );
+
+      //generate new refresh token
+      const newRefreshToken = jwt.sign(
+        {
+          id: user.id,
+          phone: user.phone,
+        },
+        process.env.JWT_REFRESH_TOKEN_SECRET,
+        {
+          expiresIn: "30d",
+        }
+      );
+
+      //store new refresh token in database
+      try {
+        await prisma.refreshToken.update({
+          where: {
+            userId: user.id,
+          },
+          data: {
+            token: newRefreshToken,
+          },
+        });
+      } catch (error) {
+        console.error(error);
+      }
+
+      //Replace access token in cookies 
+      res.cookie("accessToken", newAccessToken, {
+        httpOnly: true,
+        maxAge: maxAgeAccessToken,
+      });
+
+      res.cookie("refreshToken", newRefreshToken, {
+        httpOnly: true,
+        maxAge: maxAgeRefreshToken,
+      });
+
+      const userDto = new UserDto(user);
+
+      return res.status(200).json({ user: userDto, auth: true });
+    } catch (error) {
+      console.error(error);
+      return res.status(401).json({ error: "Unauthorized" });
+    }
   }
 }
 
