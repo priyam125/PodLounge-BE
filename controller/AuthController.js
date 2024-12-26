@@ -242,6 +242,30 @@ class AuthController {
       return res.status(401).json({ error: "Unauthorized" });
     }
   }
+
+  static async logout(req, res) {
+
+    const refreshToken = req.cookies.refreshToken;
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    //delete refresh token from database
+    try {
+      await prisma.refreshToken.delete({
+        where: {
+          token: refreshToken,
+        },
+      });
+    } catch (error) {
+      console.error(error);
+    }
+
+    //delete cookies
+    res.clearCookie("accessToken");
+    res.clearCookie("refreshToken");
+    return res.status(200).json({ user: null, auth: false });
+  }
 }
 
 export default AuthController;
