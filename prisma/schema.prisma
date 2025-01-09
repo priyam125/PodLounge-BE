@@ -13,15 +13,51 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// model User {
+//   id           String        @id @default(auto()) @map("_id") @db.ObjectId
+//   phone        String        @unique
+//   name         String?
+//   avatar       String?
+//   activated    Boolean?      @default(false)
+//   created_at   DateTime      @default(now())
+//   updated_at   DateTime      @default(now())
+//   refreshTokens RefreshToken[]
+//   rooms         Room[]       @relation("UserRooms")
+//   speakingRooms Room[]       @relation("RoomSpeakers", references: [id])
+// }
+
+// model RefreshToken {
+//   id         String   @id @default(auto()) @map("_id") @db.ObjectId
+//   token      String   @unique
+//   user       User     @relation(fields: [userId], references: [id])
+//   userId     String   @db.ObjectId
+//   created_at DateTime @default(now())
+
+//   // Unique constraint on `token` to prevent duplicates
+//   // Index for efficient filtering by `userId`
+//   @@index([userId])
+// }
+
+// model Room {
+//   id        String    @id @default(auto()) @map("_id") @db.ObjectId
+//   topic     String
+//   roomType  String
+//   owner     User     @relation("UserRooms", fields: [ownerId], references: [id])
+//   ownerId   String   @db.ObjectId
+//   speakers  User[]    @relation("RoomSpeakers")
+// }
+
 model User {
-  id           String        @id @default(auto()) @map("_id") @db.ObjectId
-  phone        String        @unique
-  name         String?
-  avatar       String?
-  activated    Boolean?      @default(false)
-  created_at   DateTime      @default(now())
-  updated_at   DateTime      @default(now())
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  phone         String       @unique
+  name          String?
+  avatar        String?
+  activated     Boolean?     @default(false)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @default(now())
   refreshTokens RefreshToken[]
+  rooms         Room[]       @relation("UserRooms")
+  speakingRooms RoomSpeaker[]
 }
 
 model RefreshToken {
@@ -34,4 +70,24 @@ model RefreshToken {
   // Unique constraint on `token` to prevent duplicates
   // Index for efficient filtering by `userId`
   @@index([userId])
+}
+
+model Room {
+  id        String        @id @default(auto()) @map("_id") @db.ObjectId
+  topic     String
+  roomType  String
+  owner     User          @relation("UserRooms", fields: [ownerId], references: [id])
+  ownerId   String        @db.ObjectId
+  speakers  RoomSpeaker[]
+}
+
+model RoomSpeaker {
+  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String @db.ObjectId
+  room    Room   @relation(fields: [roomId], references: [id])
+  roomId  String @db.ObjectId
+
+  // Optional: Add unique constraint to prevent duplicate entries for the same user and room
+  @@unique([userId, roomId])
 }

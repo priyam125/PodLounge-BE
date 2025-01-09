@@ -210,18 +210,24 @@ class AuthController {
       );
 
       //store new refresh token in database
-      try {
-        await prisma.refreshToken.update({
-          where: {
-            userId: user.id,
-          },
-          data: {
-            token: newRefreshToken,
-          },
-        });
-      } catch (error) {
-        console.error(error);
+      const existingToken = await prisma.refreshToken.findFirst({
+        where: {
+          userId: user.id,
+        },
+      });
+      
+      if (!existingToken) {
+        throw new Error("No refresh token found for this user.");
       }
+      
+      await prisma.refreshToken.update({
+        where: {
+          id: existingToken.id, // Use the unique identifier here
+        },
+        data: {
+          token: newRefreshToken,
+        },
+      });
 
       //Replace access token in cookies 
       res.cookie("accessToken", newAccessToken, {
