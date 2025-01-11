@@ -6,6 +6,7 @@ const router = Router()
 
 router.post('/rooms/create-room', verifyToken, RoomController.createRoom);
 router.get('/rooms/get-all-rooms', verifyToken, RoomController.getAllRooms);
+router.get('/rooms/:roomId', verifyToken, RoomController.getRoom);
 
 
 export default router

@@ -125,6 +125,23 @@ class RoomController {
       res.status(500).json({ error: "Failed to fetch rooms" });
     }
   }
+  
+  static async getRoom(req, res) {
+    const { roomId } = req.params;
+    try {
+      const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        include: {
+          speakers: true,
+          owner: true,
+        },
+      });
+      res.status(200).json(room);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to fetch room" });
+    }
+  }
 }
 
 export default RoomController;
