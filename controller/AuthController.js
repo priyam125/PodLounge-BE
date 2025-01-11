@@ -123,11 +123,13 @@ class AuthController {
 
     res.cookie("accessToken", accessToken, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       maxAge: maxAgeAccessToken,
     });
 
     res.cookie("refreshToken", refreshToken, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       maxAge: maxAgeRefreshToken,
     });
 
@@ -139,15 +141,6 @@ class AuthController {
       auth: true,
       user: userDto,
     });
-
-    // await prisma.refreshToken.create({
-    //     data: {
-    //         userId: user.id,
-    //         token: refreshToken,
-    //     },
-    // });
-
-    // return res.status(200).json({ message: "OTP verified successfully" });
   }
 
   static async refreshToken(req, res) { 
