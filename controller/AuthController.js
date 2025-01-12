@@ -107,7 +107,7 @@ class AuthController {
     };
 
     accessToken = jwt.sign(jwtPayload, process.env.JWT_ACCESS_TOKEN_SECRET, {
-      expiresIn: "1m",
+      expiresIn: "1d",
     });
 
     refreshToken = jwt.sign(jwtPayload, process.env.JWT_REFRESH_TOKEN_SECRET, {
